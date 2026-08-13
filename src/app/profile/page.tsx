@@ -182,6 +182,12 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 4 * 1024 * 1024) {
+      setMsg('Le CV est trop volumineux. La taille maximale est de 4 Mo.');
+      e.target.value = '';
+      return;
+    }
+
     setUploadingCv(true);
     setMsg('');
 

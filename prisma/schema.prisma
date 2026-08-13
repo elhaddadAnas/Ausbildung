@@ -108,6 +108,8 @@ model UserProfile {
   autoSearchIntervalMins Int      @default(30)
   cvFileUrl              String?
   cvFileName             String?
+  cvFileData             Bytes?
+  cvMimeType             String?
   cvParsedText           String?
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt

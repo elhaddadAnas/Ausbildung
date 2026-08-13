@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs/promises';
 import path from 'path';
-import crypto from 'crypto';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { parseCVWithAI } from '@/lib/services/openai';
 import { SubscriptionLimitError } from '@/lib/subscriptions';
-import { privateUploadsRoot, removeStoredCV } from '@/lib/private-files';
+import { removeStoredCV } from '@/lib/private-files';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -45,7 +43,6 @@ async function extractDocxText(buffer: Buffer): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
-  let persistedFileUrl = '';
   try {
     const user = await getCurrentUserFromRequest(req);
     if (!user) return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
@@ -66,8 +63,8 @@ export async function POST(req: NextRequest) {
     if (!file) {
       return NextResponse.json({ error: 'Aucun fichier sélectionné.' }, { status: 400 });
     }
-    if (file.size <= 0 || file.size > 20 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Le CV doit faire entre 1 octet et 20 Mo.' }, { status: 400 });
+    if (file.size <= 0 || file.size > 4 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Le CV doit faire entre 1 octet et 4 Mo.' }, { status: 400 });
     }
 
     const fileName = cleanStr(path.basename(file.name), 255);
@@ -114,11 +111,10 @@ export async function POST(req: NextRequest) {
     }
 
     const parsedInfo = await parseCVWithAI(parsedText, user.id);
-    const uploadsDir = privateUploadsRoot();
-    await fs.mkdir(uploadsDir, { recursive: true });
-    const safeName = `${user.id}-${crypto.randomUUID()}${extension}`;
-    await fs.writeFile(path.join(uploadsDir, safeName), buffer, { flag: 'wx' });
-    persistedFileUrl = `private:${safeName}`;
+    const persistedFileUrl = `database:${user.id}`;
+    const mimeType = isPdf
+      ? 'application/pdf'
+      : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
     const safeNameFromCV = cleanStr(parsedInfo.name, 100);
     const safeLanguages = JSON.stringify(
@@ -132,6 +128,8 @@ export async function POST(req: NextRequest) {
         update: {
           cvFileName: fileName,
           cvFileUrl: persistedFileUrl,
+          cvFileData: buffer,
+          cvMimeType: mimeType,
           cvParsedText: parsedText,
           phone: cleanStr(parsedInfo.phone, 50) || undefined,
           address: cleanStr(parsedInfo.address, 300) || undefined,
@@ -149,6 +147,8 @@ export async function POST(req: NextRequest) {
           userId: user.id,
           cvFileName: fileName,
           cvFileUrl: persistedFileUrl,
+          cvFileData: buffer,
+          cvMimeType: mimeType,
           cvParsedText: parsedText,
           phone: cleanStr(parsedInfo.phone, 50) || null,
           address: cleanStr(parsedInfo.address, 300) || null,
@@ -230,15 +230,17 @@ export async function POST(req: NextRequest) {
     if (user.profile?.cvFileUrl && user.profile.cvFileUrl !== persistedFileUrl) {
       await removeStoredCV(user.profile.cvFileUrl);
     }
+    const safeProfile = finalProfile
+      ? { ...finalProfile, cvFileData: undefined }
+      : null;
     return NextResponse.json({
       success: true,
       message: `CV ${fileName} importé et analysé avec succès.`,
       fileName,
       parsedInfo,
-      profile: finalProfile,
+      profile: safeProfile,
     });
   } catch (error) {
-    if (persistedFileUrl) await removeStoredCV(persistedFileUrl);
     console.error('Error in CV upload route:', error);
     if (error instanceof SubscriptionLimitError) {
       return NextResponse.json(
@@ -260,7 +262,13 @@ export async function DELETE(req: NextRequest) {
   const profile = await db.userProfile.findUnique({ where: { userId: user.id } });
   await db.userProfile.updateMany({
     where: { userId: user.id },
-    data: { cvFileName: null, cvFileUrl: null, cvParsedText: null },
+    data: {
+      cvFileName: null,
+      cvFileUrl: null,
+      cvFileData: null,
+      cvMimeType: null,
+      cvParsedText: null,
+    },
   });
   await db.autoApplyConfig.updateMany({
     where: { userId: user.id },
