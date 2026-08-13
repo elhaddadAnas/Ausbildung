@@ -7,8 +7,12 @@ import {
 } from '@/lib/services/arbeitsagentur';
 import {
   analyzeJobMatch,
-  generateApplicationMessage,
+  generateProfessionalApplicationPackage,
 } from '@/lib/services/openai';
+import {
+  createMotivationLetterPdf,
+  safeApplicantFileName,
+} from '@/lib/services/application-document';
 import {
   decryptString,
   isValidEmail,
@@ -93,13 +97,18 @@ async function getCVAttachment(profile: {
   }
 }
 
-function buildSimpleApplicationEmail(coverLetter: string): string {
-  const textWithLineBreaks = escapeHtml(coverLetter).replace(/\r?\n/g, '<br>');
+function buildProfessionalApplicationEmail(emailBody: string): string {
+  const paragraphs = emailBody
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p style="margin:0 0 16px;">${escapeHtml(paragraph).replace(/\r?\n/g, '<br>')}</p>`)
+    .join('');
 
   return `<!doctype html>
 <html lang="de">
-  <body>
-    ${textWithLineBreaks}
+  <body style="margin:0;padding:0;background:#ffffff;color:#172033;">
+    <main style="max-width:680px;margin:0 auto;padding:32px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.65;">
+      ${paragraphs}
+    </main>
   </body>
 </html>`;
 }
@@ -204,7 +213,7 @@ async function deliverApplicationCore(
     };
   }
 
-  const coverLetter = await generateApplicationMessage({
+  const applicationPackage = await generateProfessionalApplicationPackage({
     userName: user.name,
     userEmail: user.email,
     userPhone: user.profile.phone || '',
@@ -227,7 +236,31 @@ async function deliverApplicationCore(
     jobRequirements: job.requirements,
     jobLocation: job.location,
     tone: 'compact',
-  }, userId);
+  }, { requireOpenAI: true, userId });
+  const coverLetter = applicationPackage.motivationLetter;
+  const motivationLetterPdf = await createMotivationLetterPdf({
+    applicant: {
+      name: user.name,
+      email: user.email,
+      phone: user.profile.phone || '',
+      address: user.profile.address || '',
+      city: `${user.profile.postalCode || ''} ${user.profile.city || ''}`.trim(),
+    },
+    company: {
+      name: job.company,
+      location: job.location,
+    },
+    jobTitle: job.title,
+    motivationLetter: applicationPackage.motivationLetter,
+  });
+  const allAttachments = [
+    ...attachments,
+    {
+      filename: `Motivationsschreiben_${safeApplicantFileName(user.name)}.pdf`,
+      content: motivationLetterPdf,
+      contentType: 'application/pdf',
+    },
+  ];
 
   const offer = await db.jobOffer.upsert({
     where: { externalId: job.externalId },
@@ -316,7 +349,7 @@ async function deliverApplicationCore(
   }
 
   const smtp = user.smtpConfig;
-  const subject = `Bewerbung – ${job.title} – ${user.name}`;
+  const subject = applicationPackage.subject;
   const delivery = await sendEmailNotification(
     {
       provider: smtp.provider,
@@ -330,9 +363,9 @@ async function deliverApplicationCore(
     },
     job.contactEmail,
     subject,
-    buildSimpleApplicationEmail(coverLetter),
-    attachments,
-    coverLetter
+    buildProfessionalApplicationEmail(applicationPackage.emailBody),
+    allAttachments,
+    applicationPackage.emailBody
   );
 
   if (!delivery.success) {
@@ -368,7 +401,7 @@ async function deliverApplicationCore(
         deliveryStatus: 'SENT',
         deliveryStartedAt: null,
         deliveryError: null,
-        notesText: `${options.automated ? 'Auto-candidature' : 'Candidature'} envoyée par SMTP à ${job.contactEmail} avec le CV en pièce jointe.`,
+        notesText: `${options.automated ? 'Auto-candidature' : 'Candidature'} envoyée par SMTP à ${job.contactEmail} avec le CV et le Motivationsschreiben en pièces jointes.`,
       },
     }),
     db.applicationMessage.create({
@@ -380,7 +413,7 @@ async function deliverApplicationCore(
         fromEmail: smtp.fromEmail || smtp.authUser,
         toEmail: job.contactEmail,
         subject,
-        bodyText: coverLetter,
+        bodyText: applicationPackage.emailBody,
         sentAt,
         readAt: sentAt,
       },

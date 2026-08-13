@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { generateApplicationMessage } from '@/lib/services/openai';
+import { generateProfessionalApplicationPackage } from '@/lib/services/openai';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { SubscriptionLimitError } from '@/lib/subscriptions';
 
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const coverLetter = await generateApplicationMessage({
+    const applicationPackage = await generateProfessionalApplicationPackage({
       userName: user.name,
       userEmail: user.email,
       userPhone: user.profile?.phone || '',
@@ -96,11 +96,13 @@ export async function POST(req: NextRequest) {
       jobRequirements: finalReq,
       jobLocation: finalLocation,
       tone: tone || 'compact',
-    }, user.id);
+    }, { requireOpenAI: true, userId: user.id });
 
     return NextResponse.json({
       success: true,
-      coverLetter,
+      subject: applicationPackage.subject,
+      emailBody: applicationPackage.emailBody,
+      coverLetter: applicationPackage.motivationLetter,
       jobTitle: finalJobTitle,
       companyName: finalCompany,
     });

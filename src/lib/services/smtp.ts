@@ -104,7 +104,8 @@ export interface SMTPConfigInput {
 
 export interface EmailAttachment {
   filename: string;
-  path: string;
+  path?: string;
+  content?: Buffer;
   contentType?: string;
 }
 
