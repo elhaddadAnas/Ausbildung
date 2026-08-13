@@ -69,19 +69,29 @@ function parseLanguages(value: string | null): string[] {
 async function getCVAttachment(profile: {
   cvFileUrl: string | null;
   cvFileName: string | null;
+  cvFileData: Uint8Array | null;
+  cvMimeType: string | null;
 }, userName: string) {
+  const extension = path.extname(profile.cvFileName || '').toLowerCase() || '.pdf';
+  const safeApplicantName = userName
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'Bewerber';
+  if (profile.cvFileData?.length) {
+    return [{
+      filename: `Lebenslauf_${safeApplicantName}${extension}`,
+      content: Buffer.from(profile.cvFileData),
+      contentType: profile.cvMimeType || undefined,
+    }];
+  }
+
   const absolutePath = resolveStoredCVPath(profile.cvFileUrl);
   if (!absolutePath) return [];
 
   try {
     const file = await fs.stat(absolutePath);
     if (!file.isFile() || file.size === 0) return [];
-    const extension = path.extname(profile.cvFileName || absolutePath).toLowerCase() || '.pdf';
-    const safeApplicantName = userName
-      .normalize('NFKD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '') || 'Bewerber';
     const contentTypes: Record<string, string> = {
       '.pdf': 'application/pdf',
       '.doc': 'application/msword',
