@@ -12,6 +12,8 @@ export async function GET() {
       {
         status: 'ok',
         database: 'ok',
+        authenticationConfigured: Boolean(process.env.JWT_SECRET?.trim()),
+        smtpEncryptionConfigured: Boolean(process.env.SMTP_ENCRYPTION_KEY?.trim()),
         openaiConfigured: OPENAI_CONFIGURED,
         redisConfigured: Boolean(process.env.REDIS_URL?.trim()),
         timestamp: new Date().toISOString(),
