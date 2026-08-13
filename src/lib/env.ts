@@ -9,7 +9,7 @@ const placeholderSecrets = new Set([
 export function validateProductionEnvironment() {
   if (process.env.NODE_ENV !== 'production') return;
 
-  const databaseUrl = process.env.DATABASE_URL?.trim() || '';
+  const databaseUrl = process.env.NEON_DATABASE_URL?.trim() || '';
   const jwtSecret = process.env.JWT_SECRET?.trim() || '';
   const smtpKey = process.env.SMTP_ENCRYPTION_KEY?.trim() || '';
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || '';
@@ -24,8 +24,12 @@ export function validateProductionEnvironment() {
   const systemSmtpFrom = process.env.SYSTEM_SMTP_FROM_EMAIL?.trim() || '';
   const errors: string[] = [];
 
-  if (!databaseUrl.startsWith('file:')) {
-    errors.push('DATABASE_URL must use file: because the Prisma schema uses SQLite.');
+  if (!/^postgres(ql)?:\/\//.test(databaseUrl)) {
+    errors.push('NEON_DATABASE_URL must be a PostgreSQL connection URL.');
+  }
+  const directDatabaseUrl = process.env.NEON_DATABASE_URL_UNPOOLED?.trim() || '';
+  if (!/^postgres(ql)?:\/\//.test(directDatabaseUrl)) {
+    errors.push('NEON_DATABASE_URL_UNPOOLED must be a PostgreSQL connection URL.');
   }
   if (jwtSecret.length < 32 || placeholderSecrets.has(jwtSecret)) {
     errors.push('JWT_SECRET must be a random value of at least 32 characters.');

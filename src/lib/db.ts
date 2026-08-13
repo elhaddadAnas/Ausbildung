@@ -15,11 +15,6 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 let databaseInitialization: Promise<void> | null = null;
 
 export function initializeDatabase(): Promise<void> {
-  if (!process.env.DATABASE_URL?.startsWith('file:')) return Promise.resolve();
-  databaseInitialization ??= (async () => {
-    await db.$queryRawUnsafe('PRAGMA journal_mode = WAL');
-    await db.$queryRawUnsafe('PRAGMA foreign_keys = ON');
-    await db.$queryRawUnsafe('PRAGMA busy_timeout = 5000');
-  })();
+  databaseInitialization ??= db.$connect();
   return databaseInitialization;
 }
