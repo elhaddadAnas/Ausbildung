@@ -1,0 +1,10 @@
+.git
+.next
+node_modules
+.env
+.env.*
+data
+public/uploads
+prisma/*.db
+*.log
+tsconfig.tsbuildinfo

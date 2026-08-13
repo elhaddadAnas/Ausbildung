@@ -1,0 +1,301 @@
+// Prisma Schema for Global Job Finder AI
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  passwordHash     String?
+  name             String
+  role             String   @default("USER") // USER, ADMIN
+  isGoogleLogin    Boolean  @default(false)
+  isMicrosoftLogin Boolean  @default(false)
+  avatarUrl        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  profile             UserProfile?
+  favorites           FavoriteJob[]
+  applications        JobApplication[]
+  applicationMessages ApplicationMessage[]
+  smtpConfig          SmtpConfig?
+  autoApplyConfig     AutoApplyConfig?
+  notificationConfig  NotificationConfig?
+  auditLogs           AuditLog[]
+}
+
+model UserProfile {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone                  String?
+  address                String?
+  city                   String?
+  postalCode             String?
+  country                String?
+  dateOfBirth            String?
+  placeOfBirth           String?
+  bio                    String?
+  drivingLicense         String? // e.g. "Klasse B (PKW)", "Keiner"
+  languages              String? // JSON string: ["Deutsch (Muttersprache)", "Englisch (B2)"]
+  salaryExpectation      String?
+  contractTypePreference String? // Full-time, Part-time, Any
+  remotePreference       Boolean  @default(false)
+  autoSearchEnabled      Boolean  @default(true)
+  autoSearchIntervalMins Int      @default(30)
+  cvFileUrl              String?
+  cvFileName             String?
+  cvParsedText           String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  educations   Education[]
+  experiences  Experience[]
+  certificates Certificate[]
+  skills       Skill[]
+}
+
+model Education {
+  id           String      @id @default(uuid())
+  profileId    String
+  profile      UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  degree       String
+  fieldOfStudy String?
+  institution  String
+  location     String?
+  startDate    String
+  endDate      String?
+  current      Boolean     @default(false)
+  description  String?
+  createdAt    DateTime    @default(now())
+}
+
+model Experience {
+  id          String      @id @default(uuid())
+  profileId   String
+  profile     UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  jobTitle    String
+  company     String
+  location    String?
+  startDate   String
+  endDate     String?
+  current     Boolean     @default(false)
+  description String?
+  createdAt   DateTime    @default(now())
+}
+
+model Certificate {
+  id        String      @id @default(uuid())
+  profileId String
+  profile   UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title     String
+  issuer    String
+  issueDate String?
+  url       String?
+  createdAt DateTime    @default(now())
+}
+
+model Skill {
+  id        String      @id @default(uuid())
+  profileId String
+  profile   UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name      String
+  category  String? // e.g. IT, Handwerk, Healthcare Professional, kaufmännisch
+  level     String? // Beginner, Intermediate, Advanced, Expert
+  createdAt DateTime    @default(now())
+}
+
+model JobOffer {
+  id            String   @id @default(uuid())
+  externalId    String   @unique // Worldwide provider reference
+  title         String
+  company       String
+  location      String
+  postalCode    String?
+  country       String?
+  category      String?
+  contractType  String?
+  workTime      String? // Full-time / Part-time
+  remote        Boolean  @default(false)
+  salary        String?
+  description   String
+  requirements  String?
+  url           String?
+  contactEmail  String?
+  publishedAt   DateTime @default(now())
+  active        Boolean  @default(true)
+  searchKeyword String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  favorites    FavoriteJob[]
+  applications JobApplication[]
+}
+
+model FavoriteJob {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobOfferId String
+  jobOffer   JobOffer @relation(fields: [jobOfferId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, jobOfferId])
+}
+
+model JobApplication {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobOfferId    String
+  jobOffer      JobOffer  @relation(fields: [jobOfferId], references: [id], onDelete: Cascade)
+  status        String    @default("SAVED") // SAVED, APPLIED, INTERVIEW, OFFER, REJECTED
+  matchScore    Int? // 0 to 100
+  coverLetter   String?
+  missingSkills String? // JSON string: ["Python", "B2 Deutsch"]
+  cvTips        String? // JSON string: ["Füge IT Zertifikat hinzu"]
+  notesText     String?
+  appliedAt     DateTime?
+  interviewDate DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  notes    ApplicationNote[]
+  messages ApplicationMessage[]
+
+  @@unique([userId, jobOfferId])
+}
+
+model ApplicationNote {
+  id            String         @id @default(uuid())
+  applicationId String
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  text          String
+  createdAt     DateTime       @default(now())
+}
+
+model ApplicationMessage {
+  id            String         @id @default(uuid())
+  applicationId String
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  direction     String // INBOUND, OUTBOUND
+  messageId     String?        @unique
+  inReplyTo     String?
+  fromEmail     String
+  toEmail       String
+  subject       String
+  bodyText      String
+  sentAt        DateTime
+  readAt        DateTime?
+  createdAt     DateTime       @default(now())
+
+  @@index([applicationId, sentAt])
+  @@index([userId, direction, readAt])
+}
+
+model SmtpConfig {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          String    @default("custom") // gmail, outlook, custom
+  host              String
+  port              Int       @default(587)
+  secure            Boolean   @default(false)
+  authUser          String
+  authPassEncrypted String
+  fromEmail         String
+  fromName          String
+  active            Boolean   @default(true)
+  isTested          Boolean   @default(false)
+  lastTestedAt      DateTime?
+  imapHost          String?
+  imapPort          Int       @default(993)
+  imapSecure        Boolean   @default(true)
+  imapActive        Boolean   @default(true)
+  lastImapSyncAt    DateTime?
+  imapSyncing       Boolean   @default(false)
+  imapSyncStartedAt DateTime?
+  updatedAt         DateTime  @updatedAt
+}
+
+model AutoApplyConfig {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled         Boolean   @default(false)
+  intervalMinutes Int       @default(5)
+  keywords        String    @default("Software Engineer") // JSON string
+  cities          String    @default("[]") // JSON string
+  countries       String    @default("[]") // JSON string
+  categories      String    @default("[]") // JSON string
+  radiusKm        Int       @default(25)
+  remoteOnly      Boolean   @default(false)
+  minMatchScore   Int       @default(60)
+  maxApplications Int       @default(1)
+  lastRunAt       DateTime?
+  nextRunAt       DateTime?
+  lastResult      String?
+  running         Boolean   @default(false)
+  runStartedAt    DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model NotificationConfig {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailEnabled        Boolean  @default(true)
+  telegramEnabled     Boolean  @default(false)
+  telegramChatId      String?
+  whatsappEnabled     Boolean  @default(false)
+  whatsappNumber      String?
+  discordEnabled      Boolean  @default(false)
+  discordWebhookUrl   String?
+  alertOnNewMatch     Boolean  @default(true)
+  alertOnStatusChange Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String?
+  details   String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+model SystemLog {
+  id         String   @id @default(uuid())
+  level      String   @default("INFO") // INFO, WARN, ERROR
+  source     String
+  message    String
+  stackTrace String?
+  metadata   String?
+  createdAt  DateTime @default(now())
+}
+
+model QueueJob {
+  id           String    @id @default(uuid())
+  jobName      String
+  status       String    @default("PENDING") // PENDING, COMPLETED, FAILED
+  payload      String? // JSON
+  result       String? // JSON
+  errorMessage String?
+  runAt        DateTime  @default(now())
+  completedAt  DateTime?
+}

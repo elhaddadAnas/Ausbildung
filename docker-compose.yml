@@ -1,0 +1,52 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:/app/data/ausbildung-finder.db
+      - JWT_SECRET=${JWT_SECRET}
+      - SMTP_ENCRYPTION_KEY=${SMTP_ENCRYPTION_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - REDIS_URL=redis://redis:6379
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      - BANK_ACCOUNT_HOLDER=${BANK_ACCOUNT_HOLDER}
+      - BANK_NAME=${BANK_NAME:-}
+      - BANK_RIB=${BANK_RIB:-}
+      - BANK_IBAN=${BANK_IBAN:-}
+      - BANK_BIC=${BANK_BIC:-}
+      - BANK_TRANSFER_INSTRUCTIONS=${BANK_TRANSFER_INSTRUCTIONS:-}
+      - BILLING_ADMIN_EMAIL=${BILLING_ADMIN_EMAIL:-}
+      - SYSTEM_SMTP_HOST=${SYSTEM_SMTP_HOST}
+      - SYSTEM_SMTP_PORT=${SYSTEM_SMTP_PORT:-587}
+      - SYSTEM_SMTP_SECURE=${SYSTEM_SMTP_SECURE:-false}
+      - SYSTEM_SMTP_USER=${SYSTEM_SMTP_USER}
+      - SYSTEM_SMTP_PASSWORD=${SYSTEM_SMTP_PASSWORD}
+      - SYSTEM_SMTP_FROM_EMAIL=${SYSTEM_SMTP_FROM_EMAIL}
+      - SYSTEM_SMTP_FROM_NAME=${SYSTEM_SMTP_FROM_NAME:-Ausbildung Finder AI}
+    volumes:
+      - sqlite_data:/app/data
+      - uploads_data:/app/public/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: ausbildung_redis
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  sqlite_data:
+  uploads_data:

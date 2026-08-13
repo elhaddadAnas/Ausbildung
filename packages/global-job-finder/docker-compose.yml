@@ -1,0 +1,32 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - DATABASE_URL=file:/app/data/global-job-finder.db
+      - JWT_SECRET=${JWT_SECRET}
+      - SMTP_ENCRYPTION_KEY=${SMTP_ENCRYPTION_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - APPLICATION_LANGUAGE=${APPLICATION_LANGUAGE:-English}
+      - ADZUNA_APP_ID=${ADZUNA_APP_ID:-}
+      - ADZUNA_APP_KEY=${ADZUNA_APP_KEY:-}
+      - REDIS_URL=redis://redis:6379
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3001}
+    volumes:
+      - sqlite_data:/app/data
+      - uploads_data:/app/data/uploads
+    depends_on:
+      - redis
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: global_job_finder_redis
+    restart: always
+
+volumes:
+  sqlite_data:
+  uploads_data:
