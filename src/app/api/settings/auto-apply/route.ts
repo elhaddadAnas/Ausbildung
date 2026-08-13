@@ -9,6 +9,11 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { OPENAI_CONFIGURED } from '@/lib/services/openai';
 import { decryptString } from '@/lib/services/smtp';
 import {
+  isValidTimeZone,
+  nextAutoApplyRunAt,
+  parseScheduleDays,
+} from '@/lib/services/auto-apply-schedule';
+import {
   assertAutoApplyAllowed,
   SubscriptionLimitError,
 } from '@/lib/subscriptions';
@@ -41,7 +46,13 @@ function publicConfig(config: any) {
     cities: parse(config.cities),
     federalStates: parse(config.federalStates),
     categories: parse(config.categories),
+    scheduleDays: parseScheduleDays(config.scheduleDays),
   };
+}
+
+function normalizeScheduleDays(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return parseScheduleDays(value.map(Number));
 }
 
 export async function GET(req: NextRequest) {
@@ -116,8 +127,39 @@ export async function PUT(req: NextRequest) {
     const radiusKm = Math.min(200, Math.max(0, Number(body.radiusKm) || 25));
     const minMatchScore = Math.min(100, Math.max(0, Number(body.minMatchScore) || 0));
     const maxApplications = 1;
+    const scheduleDays = normalizeScheduleDays(body.scheduleDays);
+    const scheduleStartMinute = Number(body.scheduleStartMinute);
+    const scheduleEndMinute = Number(body.scheduleEndMinute);
+    const scheduleTimezone = String(body.scheduleTimezone || '').trim();
+    if (!scheduleDays.length) {
+      return NextResponse.json({ error: 'Sélectionnez au moins un jour.' }, { status: 400 });
+    }
+    if (
+      !Number.isInteger(scheduleStartMinute) ||
+      !Number.isInteger(scheduleEndMinute) ||
+      scheduleStartMinute < 0 ||
+      scheduleEndMinute > 1439 ||
+      scheduleStartMinute >= scheduleEndMinute
+    ) {
+      return NextResponse.json(
+        { error: 'L’heure de fin doit être postérieure à l’heure de début.' },
+        { status: 400 }
+      );
+    }
+    if (!isValidTimeZone(scheduleTimezone)) {
+      return NextResponse.json({ error: 'Fuseau horaire invalide.' }, { status: 400 });
+    }
     const current = await db.autoApplyConfig.findUnique({ where: { userId: user.id } });
     const justEnabled = enabled && !current?.enabled;
+    const schedule = {
+      scheduleDays,
+      scheduleStartMinute,
+      scheduleEndMinute,
+      scheduleTimezone,
+    };
+    const nextScheduledRun = enabled
+      ? nextAutoApplyRunAt(schedule, new Date(), getAutoApplyIntervalMinutes())
+      : null;
 
     const config = await db.autoApplyConfig.upsert({
       where: { userId: user.id },
@@ -132,12 +174,12 @@ export async function PUT(req: NextRequest) {
         remoteOnly: Boolean(body.remoteOnly),
         minMatchScore,
         maxApplications,
+        scheduleDays: JSON.stringify(scheduleDays),
+        scheduleStartMinute,
+        scheduleEndMinute,
+        scheduleTimezone,
         ...(justEnabled ? { lastResult: null } : {}),
-        nextRunAt: enabled
-          ? (justEnabled
-              ? new Date(Date.now() + getAutoApplyIntervalMinutes() * 60_000)
-              : current?.nextRunAt || new Date(Date.now() + getAutoApplyIntervalMinutes() * 60_000))
-          : null,
+        nextRunAt: nextScheduledRun,
       },
       create: {
         userId: user.id,
@@ -151,9 +193,11 @@ export async function PUT(req: NextRequest) {
         remoteOnly: Boolean(body.remoteOnly),
         minMatchScore,
         maxApplications,
-        nextRunAt: enabled
-          ? new Date(Date.now() + getAutoApplyIntervalMinutes() * 60_000)
-          : null,
+        scheduleDays: JSON.stringify(scheduleDays),
+        scheduleStartMinute,
+        scheduleEndMinute,
+        scheduleTimezone,
+        nextRunAt: nextScheduledRun,
       },
     });
     return NextResponse.json({ success: true, config: publicConfig(config) });

@@ -3,6 +3,10 @@ import { BAJobItem, fetchArbeitsagenturOffers } from '@/lib/services/arbeitsagen
 import { deliverApplication } from '@/lib/services/application-mailer';
 import { OPENAI_CONFIGURED } from '@/lib/services/openai';
 import {
+  isWithinAutoApplySchedule,
+  nextAutoApplyRunAt,
+} from '@/lib/services/auto-apply-schedule';
+import {
   assertAutoApplyAllowed,
   SubscriptionLimitError,
 } from '@/lib/subscriptions';
@@ -27,10 +31,6 @@ function parseList(value: string | null | undefined): string[] {
     // Accept legacy comma-separated values.
   }
   return value.split(',').map((item) => item.trim()).filter(Boolean);
-}
-
-function nextRunDate(): Date {
-  return new Date(Date.now() + INTERVAL_MINUTES * 60_000);
 }
 
 function categoryMatches(job: BAJobItem, categories: string[]): boolean {
@@ -68,6 +68,33 @@ export async function runAutoApplyForUser(
   userId: string,
   options: { force?: boolean } = {}
 ) {
+  const config = await db.autoApplyConfig.findUnique({ where: { userId } });
+  if (!config) return { success: false, error: 'Configuration auto-candidature introuvable.' };
+  if (!options.force && !config.enabled) {
+    return { success: false, skipped: true, error: 'Auto-candidature désactivée.' };
+  }
+  if (!options.force && !isWithinAutoApplySchedule(config)) {
+    const nextRunAt = nextAutoApplyRunAt(config, new Date(), INTERVAL_MINUTES);
+    const result = {
+      success: true,
+      skipped: true,
+      outsideSchedule: true,
+      error: 'En dehors de la plage horaire programmée.',
+      nextRunAt: nextRunAt?.toISOString() || null,
+      completedAt: new Date().toISOString(),
+    };
+    await db.autoApplyConfig.update({
+      where: { id: config.id },
+      data: {
+        running: false,
+        runStartedAt: null,
+        nextRunAt,
+        lastResult: JSON.stringify(result),
+      },
+    });
+    return result;
+  }
+
   try {
     await assertAutoApplyAllowed(userId);
   } catch (error) {
@@ -94,11 +121,6 @@ export async function runAutoApplyForUser(
       return result;
     }
     throw error;
-  }
-  const config = await db.autoApplyConfig.findUnique({ where: { userId } });
-  if (!config) return { success: false, error: 'Configuration auto-candidature introuvable.' };
-  if (!options.force && !config.enabled) {
-    return { success: false, skipped: true, error: 'Auto-candidature désactivée.' };
   }
   if (!OPENAI_CONFIGURED) {
     const result = {
@@ -327,7 +349,13 @@ export async function runAutoApplyForUser(
   } finally {
     const latest = await db.autoApplyConfig.findUnique({
       where: { id: config.id },
-      select: { enabled: true },
+      select: {
+        enabled: true,
+        scheduleDays: true,
+        scheduleStartMinute: true,
+        scheduleEndMinute: true,
+        scheduleTimezone: true,
+      },
     });
     await db.autoApplyConfig.update({
       where: { id: config.id },
@@ -335,7 +363,9 @@ export async function runAutoApplyForUser(
         running: false,
         runStartedAt: null,
         lastRunAt: new Date(),
-        nextRunAt: latest?.enabled ? nextRunDate() : null,
+        nextRunAt: latest?.enabled
+          ? nextAutoApplyRunAt(latest, new Date(), INTERVAL_MINUTES)
+          : null,
         lastResult: JSON.stringify(result),
       },
     });
@@ -364,9 +394,14 @@ export async function runDueAutoApplyJobs() {
     select: { userId: true },
   });
 
+  const results = [];
   for (const config of due) {
-    await runAutoApplyForUser(config.userId);
+    results.push({
+      userId: config.userId,
+      result: await runAutoApplyForUser(config.userId),
+    });
   }
+  return { processed: due.length, results };
 }
 
 export function getAutoApplyIntervalMinutes() {

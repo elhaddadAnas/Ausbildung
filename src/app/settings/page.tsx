@@ -32,6 +32,27 @@ function autoApplyResultSummary(rawResult: string): string {
   }
 }
 
+const AUTO_APPLY_DAYS = [
+  { value: 1, label: 'Lun' },
+  { value: 2, label: 'Mar' },
+  { value: 3, label: 'Mer' },
+  { value: 4, label: 'Jeu' },
+  { value: 5, label: 'Ven' },
+  { value: 6, label: 'Sam' },
+  { value: 0, label: 'Dim' },
+];
+
+function minuteToTime(value: number): string {
+  const hours = Math.floor(value / 60).toString().padStart(2, '0');
+  const minutes = (value % 60).toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function timeToMinute(value: string): number {
+  const [hours, minutes] = value.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
 export default function SettingsPage() {
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [testingSmtp, setTestingSmtp] = useState(false);
@@ -69,6 +90,10 @@ export default function SettingsPage() {
   const [autoRadiusKm, setAutoRadiusKm] = useState(25);
   const [autoRemoteOnly, setAutoRemoteOnly] = useState(false);
   const [autoMinMatchScore, setAutoMinMatchScore] = useState(60);
+  const [autoScheduleDays, setAutoScheduleDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [autoScheduleStart, setAutoScheduleStart] = useState('08:00');
+  const [autoScheduleEnd, setAutoScheduleEnd] = useState('15:00');
+  const [autoScheduleTimezone, setAutoScheduleTimezone] = useState('Europe/Berlin');
   const [autoLastRunAt, setAutoLastRunAt] = useState<string | null>(null);
   const [autoNextRunAt, setAutoNextRunAt] = useState<string | null>(null);
   const [autoLastResult, setAutoLastResult] = useState('');
@@ -151,6 +176,10 @@ export default function SettingsPage() {
           setAutoRadiusKm(config.radiusKm ?? 25);
           setAutoRemoteOnly(config.remoteOnly ?? false);
           setAutoMinMatchScore(config.minMatchScore ?? 60);
+          setAutoScheduleDays(config.scheduleDays || [1, 2, 3, 4, 5]);
+          setAutoScheduleStart(minuteToTime(config.scheduleStartMinute ?? 480));
+          setAutoScheduleEnd(minuteToTime(config.scheduleEndMinute ?? 900));
+          setAutoScheduleTimezone(config.scheduleTimezone || 'Europe/Berlin');
           setAutoLastRunAt(config.lastRunAt || null);
           setAutoNextRunAt(config.nextRunAt || null);
           setAutoLastResult(config.lastResult || '');
@@ -294,6 +323,10 @@ export default function SettingsPage() {
     radiusKm: autoRadiusKm,
     remoteOnly: autoRemoteOnly,
     minMatchScore: autoMinMatchScore,
+    scheduleDays: autoScheduleDays,
+    scheduleStartMinute: timeToMinute(autoScheduleStart),
+    scheduleEndMinute: timeToMinute(autoScheduleEnd),
+    scheduleTimezone: autoScheduleTimezone,
   });
 
   const saveAutoApply = async (enabled = autoApplyEnabled) => {
@@ -314,7 +347,7 @@ export default function SettingsPage() {
       setAutoLastResult(data.config.lastResult || '');
       setAutoApplyMsg({
         text: data.config.enabled
-          ? 'Auto-candidature activée. Prochaine exécution dans 3 minutes.'
+          ? 'Auto-candidature activée selon votre planning.'
           : 'Auto-candidature désactivée.',
         error: false,
       });
@@ -821,7 +854,7 @@ export default function SettingsPage() {
               Auto-candidature Ausbildung
             </h3>
             <p className="text-xs text-slate-400 mt-1">
-              Recherche automatiquement et envoie au maximum une candidature personnalisée toutes les 3 minutes via votre SMTP.
+              Recherche automatiquement et envoie au maximum une candidature personnalisée toutes les 3 minutes pendant les jours et heures choisis.
               Les erreurs de limite Gmail/SMTP arrêtent le bot immédiatement, sans nouvelle tentative automatique.
             </p>
           </div>
@@ -943,6 +976,88 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        <fieldset className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-4">
+          <legend className="px-2 text-xs font-bold text-white flex items-center gap-2">
+            <Clock3 className="w-4 h-4 text-blue-400" />
+            Planning d’envoi
+          </legend>
+          <div>
+            <span className="block text-xs font-semibold text-slate-300 mb-2">Jours actifs</span>
+            <div className="flex flex-wrap gap-2">
+              {AUTO_APPLY_DAYS.map((day) => {
+                const selected = autoScheduleDays.includes(day.value);
+                return (
+                  <button
+                    key={day.value}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setAutoScheduleDays((current) =>
+                      selected
+                        ? current.filter((value) => value !== day.value)
+                        : [...current, day.value]
+                    )}
+                    className={`min-w-12 px-3 py-2 rounded-lg border text-xs font-bold transition-colors ${
+                      selected
+                        ? 'bg-blue-600 border-blue-500 text-white'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {day.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label htmlFor="auto-schedule-start" className="block text-xs font-semibold text-slate-300 mb-1">
+                De
+              </label>
+              <input
+                id="auto-schedule-start"
+                type="time"
+                value={autoScheduleStart}
+                onChange={(event) => setAutoScheduleStart(event.target.value)}
+                className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white"
+              />
+            </div>
+            <div>
+              <label htmlFor="auto-schedule-end" className="block text-xs font-semibold text-slate-300 mb-1">
+                À
+              </label>
+              <input
+                id="auto-schedule-end"
+                type="time"
+                value={autoScheduleEnd}
+                onChange={(event) => setAutoScheduleEnd(event.target.value)}
+                className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white"
+              />
+            </div>
+            <div>
+              <label htmlFor="auto-schedule-timezone" className="block text-xs font-semibold text-slate-300 mb-1">
+                Fuseau horaire
+              </label>
+              <select
+                id="auto-schedule-timezone"
+                value={autoScheduleTimezone}
+                onChange={(event) => setAutoScheduleTimezone(event.target.value)}
+                className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white"
+              >
+                {!['Europe/Berlin', 'Africa/Casablanca', 'Europe/Paris', 'UTC'].includes(autoScheduleTimezone) && (
+                  <option value={autoScheduleTimezone}>{autoScheduleTimezone}</option>
+                )}
+                <option value="Europe/Berlin">Allemagne (Berlin)</option>
+                <option value="Africa/Casablanca">Maroc (Casablanca)</option>
+                <option value="Europe/Paris">France (Paris)</option>
+                <option value="UTC">UTC</option>
+              </select>
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Exemple : Lun–Ven, 08:00–15:00. « Exécuter maintenant » ignore ce planning.
+          </p>
+        </fieldset>
+
         <label className="flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
           <input
             type="checkbox"
@@ -987,7 +1102,7 @@ export default function SettingsPage() {
             disabled={savingAutoApply || runningAutoApply}
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl disabled:opacity-50"
           >
-            {savingAutoApply ? 'Enregistrement...' : 'Enregistrer les filtres'}
+            {savingAutoApply ? 'Enregistrement...' : 'Enregistrer filtres et planning'}
           </button>
         </div>
       </form>

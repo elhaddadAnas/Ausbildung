@@ -304,26 +304,30 @@ model SmtpConfig {
 }
 
 model AutoApplyConfig {
-  id              String    @id @default(uuid())
-  userId          String    @unique
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  enabled         Boolean   @default(false)
-  intervalMinutes Int       @default(3)
-  keywords        String    @default("Ausbildung") // JSON string
-  cities          String    @default("[]") // JSON string
-  federalStates   String    @default("[]") // JSON string
-  categories      String    @default("[]") // JSON string
-  radiusKm        Int       @default(25)
-  remoteOnly      Boolean   @default(false)
-  minMatchScore   Int       @default(60)
-  maxApplications Int       @default(1)
-  lastRunAt       DateTime?
-  nextRunAt       DateTime?
-  lastResult      String?
-  running         Boolean   @default(false)
-  runStartedAt    DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                  String    @id @default(uuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled             Boolean   @default(false)
+  intervalMinutes     Int       @default(3)
+  keywords            String    @default("Ausbildung") // JSON string
+  cities              String    @default("[]") // JSON string
+  federalStates       String    @default("[]") // JSON string
+  categories          String    @default("[]") // JSON string
+  radiusKm            Int       @default(25)
+  remoteOnly          Boolean   @default(false)
+  minMatchScore       Int       @default(60)
+  maxApplications     Int       @default(1)
+  scheduleDays        String    @default("[1,2,3,4,5]") // JSON: 0=Sunday, 1=Monday, ... 6=Saturday
+  scheduleStartMinute Int       @default(480) // 08:00 in scheduleTimezone
+  scheduleEndMinute   Int       @default(900) // 15:00 in scheduleTimezone, exclusive
+  scheduleTimezone    String    @default("Europe/Berlin")
+  lastRunAt           DateTime?
+  nextRunAt           DateTime?
+  lastResult          String?
+  running             Boolean   @default(false)
+  runStartedAt        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@index([enabled, running, nextRunAt])
 }
