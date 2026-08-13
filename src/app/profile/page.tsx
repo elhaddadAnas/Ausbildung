@@ -442,7 +442,7 @@ export default function ProfilePage() {
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">{name}</h1>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-xl">
-              {bio ? bio.slice(0, 95) + (bio.length > 95 ? '...' : '') : 'Importez votre CV (PDF, DOC ou DOCX) pour compléter votre profil.'}
+              {bio ? bio.slice(0, 95) + (bio.length > 95 ? '...' : '') : 'Importez votre CV (PDF ou DOCX) pour compléter votre profil.'}
             </p>
           </div>
         </div>
