@@ -51,8 +51,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);
   if (!user) return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
-  if (user.role === 'ADMIN') {
-    return NextResponse.json({ error: 'Les administrateurs disposent déjà d’un accès illimité.' }, { status: 400 });
+  if (user.role === 'ADMIN' || user.unlimitedAccess) {
+    return NextResponse.json({ error: 'Ce compte dispose déjà d’un accès illimité.' }, { status: 400 });
   }
   const bankConfigured = bankTransferConfigured();
   const rateLimit = await checkRateLimit(`bank-transfer:${user.id}`, 10, 60 * 60_000);

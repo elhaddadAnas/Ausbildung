@@ -283,7 +283,7 @@ export default function SubscriptionPage() {
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Formule active</p>
             <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
-              {subscription.unlimited ? 'Administrateur — Illimité' : activePlan.name}
+              {subscription.unlimited ? 'Accès illimité' : activePlan.name}
             </p>
             {!subscription.unlimited && (
               <p className="text-xs text-slate-500">
@@ -359,7 +359,7 @@ export default function SubscriptionPage() {
                 className={`flex items-center justify-center rounded-xl px-4 py-3 text-sm font-bold transition ${unavailable ? 'cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-800' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
               >
                 {requesting === plan.code && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {subscription?.unlimited ? 'Accès admin illimité' : isActive ? 'Formule actuelle' : plan.code === 'BASIC' ? 'Formule gratuite' : isPending ? 'Afficher les coordonnées' : 'Choisir et payer par virement'}
+                {subscription?.unlimited ? 'Accès illimité' : isActive ? 'Formule actuelle' : plan.code === 'BASIC' ? 'Formule gratuite' : isPending ? 'Afficher les coordonnées' : 'Choisir et payer par virement'}
               </button>
             </article>
           );

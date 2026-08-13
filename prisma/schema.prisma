@@ -20,6 +20,7 @@ model User {
   isGoogleLogin                    Boolean   @default(false)
   isMicrosoftLogin                 Boolean   @default(false)
   avatarUrl                        String?
+  unlimitedAccess                  Boolean   @default(false)
   subscriptionPlan                 String    @default("BASIC") // BASIC, PLUS, PRO
   subscriptionStatus               String    @default("ACTIVE") // ACTIVE, PENDING, SUSPENDED
   subscriptionRequestedPlan        String?

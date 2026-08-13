@@ -136,6 +136,7 @@ export async function getSubscriptionSnapshot(userId: string) {
       aiCreditsUsed: true,
       applicationsUsed: true,
       role: true,
+      unlimitedAccess: true,
     },
   });
   if (!user) throw new Error('Utilisateur introuvable.');
@@ -143,7 +144,7 @@ export async function getSubscriptionSnapshot(userId: string) {
   const planCode = isSubscriptionPlan(user.subscriptionPlan)
     ? user.subscriptionPlan
     : 'BASIC';
-  const unlimited = user.role === 'ADMIN';
+  const unlimited = user.role === 'ADMIN' || user.unlimitedAccess;
   const effectivePlanCode = unlimited
     ? 'PRO'
     : user.subscriptionStatus === 'ACTIVE'
