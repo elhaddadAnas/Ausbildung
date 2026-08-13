@@ -5,11 +5,11 @@ import AppShell from '@/components/AppShell';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Ausbildung Finder AI — Trouvez votre Ausbildung en Allemagne',
-    template: '%s | Ausbildung Finder AI',
+    default: 'Azubora — Votre carrière en Allemagne, en mouvement',
+    template: '%s | Azubora',
   },
   description:
-    'Recherchez des offres d’Ausbildung, générez des candidatures personnalisées avec votre CV et centralisez les réponses des entreprises.',
+    'Trouvez votre Ausbildung, automatisez des candidatures personnalisées et centralisez les réponses des entreprises avec Azubora.',
 };
 
 export default function RootLayout({
@@ -18,8 +18,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="de" className="dark">
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100">
+    <html lang="fr" className="dark">
+      <body className="min-h-screen bg-[#f5f7fb] text-slate-900 antialiased transition-colors duration-300 dark:bg-[#070a12] dark:text-slate-100">
         <ThemeProvider>
           <AppShell>{children}</AppShell>
         </ThemeProvider>

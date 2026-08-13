@@ -153,7 +153,7 @@ export function normalizeSMTPConfig(config: SMTPConfigInput): SMTPConfigInput {
     authUser,
     authPass: String(config.authPass || '').replace(/\s+/g, ''),
     fromEmail,
-    fromName: String(config.fromName || 'Ausbildung Finder AI').trim(),
+    fromName: String(config.fromName || 'Azubora').trim(),
   };
 }
 
@@ -337,7 +337,7 @@ export async function sendEmailNotification(
     transporter = createTransport(normalized);
     const info = await transporter.sendMail({
       from: {
-        name: normalized.fromName || 'Ausbildung Finder AI',
+        name: normalized.fromName || 'Azubora',
         address: normalized.fromEmail,
       },
       replyTo: normalized.fromEmail,

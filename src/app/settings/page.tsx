@@ -72,7 +72,7 @@ export default function SettingsPage() {
   const [authUser, setAuthUser] = useState('');
   const [authPass, setAuthPass] = useState('');
   const [fromEmail, setFromEmail] = useState('');
-  const [fromName, setFromName] = useState('Ausbildung Finder AI');
+  const [fromName, setFromName] = useState('Azubora');
   const [smtpActive, setSmtpActive] = useState(true);
   const [smtpTested, setSmtpTested] = useState(false);
   const [hasSavedPassword, setHasSavedPassword] = useState(false);
@@ -122,7 +122,7 @@ export default function SettingsPage() {
           setSecure(data.smtp.secure || false);
           setAuthUser(data.smtp.authUser || '');
           setFromEmail(data.smtp.fromEmail || '');
-          setFromName(data.smtp.fromName || 'Ausbildung Finder AI');
+          setFromName(data.smtp.fromName || 'Azubora');
           setSmtpActive(data.smtp.active ?? true);
           setSmtpTested(data.smtp.isTested ?? false);
           setImapHost(data.smtp.imapHost || (data.smtp.provider === 'outlook' ? 'outlook.office365.com' : 'imap.gmail.com'));

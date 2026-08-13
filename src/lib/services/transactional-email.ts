@@ -31,7 +31,7 @@ function config(): SMTPConfigInput | null {
     authUser,
     authPass,
     fromEmail,
-    fromName: process.env.SYSTEM_SMTP_FROM_NAME?.trim() || 'Ausbildung Finder AI',
+    fromName: process.env.SYSTEM_SMTP_FROM_NAME?.trim() || 'Azubora',
   };
 }
 
@@ -43,7 +43,7 @@ function layout(title: string, content: string): string {
   return `<!doctype html><html><body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a">
   <div style="max-width:620px;margin:0 auto;padding:32px 16px">
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:28px">
-      <div style="font-size:12px;font-weight:700;color:#2563eb;text-transform:uppercase">Ausbildung Finder AI</div>
+      <div style="font-size:12px;font-weight:700;color:#2563eb;text-transform:uppercase">Azubora</div>
       <h1 style="font-size:24px;margin:10px 0 20px">${escapeHtml(title)}</h1>
       ${content}
     </div>
@@ -69,9 +69,9 @@ async function send(
 export function sendWelcomeEmail(to: string, name: string) {
   return send(
     to,
-    'Bienvenue sur Ausbildung Finder AI',
+    'Bienvenue sur Azubora',
     layout('Bienvenue', `<p>Bonjour ${escapeHtml(name)},</p><p>Votre compte est prêt. Complétez votre profil pour commencer à rechercher et gérer vos candidatures.</p><p><a href="${appUrl()}/dashboard">Ouvrir mon tableau de bord</a></p>`),
-    `Bonjour ${name}, votre compte Ausbildung Finder AI est prêt. ${appUrl()}/dashboard`
+    `Bonjour ${name}, votre compte Azubora est prêt. ${appUrl()}/dashboard`
   );
 }
 

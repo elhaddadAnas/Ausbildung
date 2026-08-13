@@ -81,14 +81,14 @@ export async function dispatchMultiChannelNotification(
             : ''
         }
         <hr style="margin-top: 24px; border: none; border-top: 1px solid #e2e8f0;" />
-        <p style="font-size: 12px; color: #94a3b8;">Gesendet von Ausbildung Finder AI • Bundesagentur für Arbeit Automation</p>
+        <p style="font-size: 12px; color: #94a3b8;">Gesendet von Azubora • Automatisierte Ausbildungssuche</p>
       </div>
     `;
 
     const emailRes = await sendEmailNotification(
       settings.smtpConfig,
       settings.userEmail,
-      `[Ausbildung Finder AI] ${payload.title}`,
+      `[Azubora] ${payload.title}`,
       htmlBody
     );
     results.push({ channel: 'email', success: emailRes.success, error: emailRes.error });
@@ -136,7 +136,7 @@ export async function dispatchMultiChannelNotification(
                 { name: 'Stelle', value: payload.jobTitle || 'N/A', inline: true },
                 { name: 'Firma', value: payload.company || 'N/A', inline: true },
               ],
-              footer: { text: 'Ausbildung Finder AI' },
+              footer: { text: 'Azubora' },
               timestamp: new Date().toISOString(),
             },
           ],

@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Lock, Mail, Sparkles, User, UserPlus } from 'lucide-react';
+import { AlertCircle, ArrowRight, Lock, Mail, User } from 'lucide-react';
+import AuthFrame from '@/components/AuthFrame';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -49,38 +50,24 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-slate-100">
-      <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-3xl p-8 shadow-2xl shadow-blue-950/40">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-3">
-            <span className="p-2 bg-blue-600 rounded-xl text-white">
-              <Sparkles className="w-6 h-6" />
-            </span>
-            <span className="font-bold text-xl text-white">Ausbildung Finder AI</span>
-          </Link>
-          <h1 className="text-2xl font-bold text-white">Créer un compte</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Créez votre profil pour commencer votre recherche.
-          </p>
-        </div>
-
+    <AuthFrame title="Construisez votre avenir." description="Créez gratuitement votre workspace de recherche d’Ausbildung.">
         {error && (
           <div
             role="alert"
-            className="mb-6 p-3.5 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl font-medium flex gap-2"
+            className="mb-6 flex gap-2 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3.5 text-xs font-medium text-rose-300"
           >
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label htmlFor="name" className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label htmlFor="name" className="mb-2 block text-[10px] font-black uppercase tracking-wider text-slate-400">
               Nom complet
             </label>
             <div className="relative">
-              <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+              <User className="absolute left-4 top-4 h-4 w-4 text-slate-500" />
               <input
                 id="name"
                 name="name"
@@ -91,18 +78,18 @@ export default function RegisterPage() {
                 required
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500"
+                className="w-full rounded-xl border border-white/[0.08] bg-black/20 py-3.5 pl-11 pr-4 text-sm text-white placeholder:text-slate-600 focus:border-blue-400 focus:outline-none"
                 placeholder="Jean Dupont"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label htmlFor="email" className="mb-2 block text-[10px] font-black uppercase tracking-wider text-slate-400">
               Adresse e-mail
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+              <Mail className="absolute left-4 top-4 h-4 w-4 text-slate-500" />
               <input
                 id="email"
                 name="email"
@@ -111,18 +98,18 @@ export default function RegisterPage() {
                 required
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500"
+                className="w-full rounded-xl border border-white/[0.08] bg-black/20 py-3.5 pl-11 pr-4 text-sm text-white placeholder:text-slate-600 focus:border-blue-400 focus:outline-none"
                 placeholder="jean@exemple.fr"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="new-password" className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label htmlFor="new-password" className="mb-2 block text-[10px] font-black uppercase tracking-wider text-slate-400">
               Mot de passe
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+              <Lock className="absolute left-4 top-4 h-4 w-4 text-slate-500" />
               <input
                 id="new-password"
                 name="password"
@@ -133,18 +120,18 @@ export default function RegisterPage() {
                 required
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500"
+                className="w-full rounded-xl border border-white/[0.08] bg-black/20 py-3.5 pl-11 pr-4 text-sm text-white placeholder:text-slate-600 focus:border-blue-400 focus:outline-none"
                 placeholder="Au moins 10 caractères"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="password-confirmation" className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label htmlFor="password-confirmation" className="mb-2 block text-[10px] font-black uppercase tracking-wider text-slate-400">
               Confirmer le mot de passe
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+              <Lock className="absolute left-4 top-4 h-4 w-4 text-slate-500" />
               <input
                 id="password-confirmation"
                 name="passwordConfirmation"
@@ -155,7 +142,7 @@ export default function RegisterPage() {
                 required
                 value={passwordConfirmation}
                 onChange={(event) => setPasswordConfirmation(event.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500"
+                className="w-full rounded-xl border border-white/[0.08] bg-black/20 py-3.5 pl-11 pr-4 text-sm text-white placeholder:text-slate-600 focus:border-blue-400 focus:outline-none"
                 placeholder="Répétez le mot de passe"
               />
             </div>
@@ -164,20 +151,19 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 py-3.5 text-sm font-black text-white shadow-lg shadow-blue-950/50 transition hover:-translate-y-0.5 disabled:opacity-60"
           >
-            <UserPlus className="w-4 h-4" />
             {loading ? 'Création…' : 'Créer mon compte'}
+            {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}
           </button>
         </form>
 
-        <p className="mt-8 text-center text-xs text-slate-400">
+        <p className="mt-7 text-center text-xs text-slate-500">
           Déjà inscrit ?{' '}
-          <Link href="/login" className="text-blue-400 hover:underline font-semibold">
+          <Link href="/login" className="font-bold text-blue-400 hover:text-blue-300">
             Se connecter
           </Link>
         </p>
-      </div>
-    </main>
+    </AuthFrame>
   );
 }
