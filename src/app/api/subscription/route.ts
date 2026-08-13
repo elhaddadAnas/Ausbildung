@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 import {
+  CREDIT_PACKS,
   getSubscriptionSnapshot,
   SUBSCRIPTION_PLANS,
 } from '@/lib/subscriptions';
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     subscription,
     plans: Object.values(SUBSCRIPTION_PLANS),
+    creditPacks: Object.values(CREDIT_PACKS),
     billingMode: bankTransferConfigured() ? 'bank_transfer' : 'not_configured',
   });
 }

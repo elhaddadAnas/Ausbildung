@@ -4,12 +4,19 @@ import { db } from '@/lib/db';
 import { checkRateLimit } from '@/lib/rate-limit';
 import {
   bankTransferConfigured,
+  creditPackAmountCents,
   generateUniqueTransferReference,
   getBankTransferDetails,
+  isCreditTopupPayment,
   isPaidSubscriptionPlan,
   paymentAmountCents,
   serializePayment,
 } from '@/lib/bank-transfer';
+import {
+  CREDIT_PACKS,
+  isCreditPack,
+  SUBSCRIPTION_PLANS,
+} from '@/lib/subscriptions';
 import {
   sendAdminTransferAlert,
   sendBankTransferInstructionsEmail,
@@ -64,18 +71,38 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  if (!isPaidSubscriptionPlan(body.plan)) {
-    return NextResponse.json({ error: 'Choisissez la formule Plus ou Pro.' }, { status: 400 });
+  const requestedPlan: unknown = body.plan;
+  const requestedCreditPack: unknown = body.creditPack;
+  const plan = isPaidSubscriptionPlan(requestedPlan) ? requestedPlan : null;
+  const creditPack = isCreditPack(requestedCreditPack) ? requestedCreditPack : null;
+  if ((!plan && !creditPack) || (plan && creditPack)) {
+    return NextResponse.json(
+      { error: 'Choisissez une formule ou un pack de crédits valide.' },
+      { status: 400 }
+    );
   }
-  const plan = body.plan;
+  const productCode = plan || creditPack!;
+  const kind = creditPack ? 'CREDIT_TOPUP' : 'SUBSCRIPTION';
+  const creditAmount = creditPack ? CREDIT_PACKS[creditPack].credits : null;
+  const amountCents = creditPack
+    ? creditPackAmountCents(creditPack)
+    : paymentAmountCents(plan!);
+  const productLabel = creditPack
+    ? `${CREDIT_PACKS[creditPack].credits.toLocaleString('fr-FR')} crédits IA`
+    : `formule ${SUBSCRIPTION_PLANS[plan!].name}`;
   await expireStaleRequests(user.id);
   let payment = await db.bankTransferPayment.findFirst({
-    where: { userId: user.id, plan, status: { in: ['PENDING', 'SUBMITTED'] } },
+    where: {
+      userId: user.id,
+      plan: productCode,
+      kind,
+      status: { in: ['PENDING', 'SUBMITTED'] },
+    },
     orderBy: { createdAt: 'desc' },
   });
   let created = false;
   if (!payment) {
-    const reference = await generateUniqueTransferReference(plan);
+    const reference = await generateUniqueTransferReference(productCode);
     payment = await db.$transaction(async (tx) => {
       await tx.bankTransferPayment.updateMany({
         where: { userId: user.id, status: { in: ['PENDING', 'SUBMITTED'] } },
@@ -88,8 +115,10 @@ export async function POST(req: NextRequest) {
       return tx.bankTransferPayment.create({
         data: {
           userId: user.id,
-          plan,
-          amountCents: paymentAmountCents(plan),
+          plan: productCode,
+          kind,
+          creditAmount,
+          amountCents,
           reference,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000),
         },
@@ -103,7 +132,7 @@ export async function POST(req: NextRequest) {
     ? await sendBankTransferInstructionsEmail({
         to: user.email,
         name: user.name,
-        plan,
+        productLabel,
         amountEur: payment.amountCents / 100,
         reference: payment.reference,
         ...bankDetails,
@@ -116,7 +145,7 @@ export async function POST(req: NextRequest) {
     await sendAdminTransferAlert({
       userName: user.name,
       userEmail: user.email,
-      plan,
+      productLabel,
       amountEur: payment.amountCents / 100,
       reference: payment.reference,
       submitted: false,
@@ -158,13 +187,18 @@ export async function PUT(req: NextRequest) {
         where: { id: payment.id },
         data: { status: 'SUBMITTED', submittedAt: new Date() },
       });
-  if (payment.status !== 'SUBMITTED' && isPaidSubscriptionPlan(payment.plan)) {
+  const productLabel = isCreditTopupPayment(payment)
+    ? `${payment.creditAmount.toLocaleString('fr-FR')} crédits IA`
+    : isPaidSubscriptionPlan(payment.plan)
+      ? `formule ${SUBSCRIPTION_PLANS[payment.plan].name}`
+      : null;
+  if (payment.status !== 'SUBMITTED' && productLabel) {
     await Promise.all([
       sendTransferSubmittedEmail(user.email, user.name, payment.reference),
       sendAdminTransferAlert({
         userName: user.name,
         userEmail: user.email,
-        plan: payment.plan,
+        productLabel,
         amountEur: payment.amountCents / 100,
         reference: payment.reference,
         submitted: true,

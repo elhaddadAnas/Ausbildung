@@ -428,7 +428,7 @@ export default function AdminPage() {
                 <tr>
                   <th className="p-3">Client</th>
                   <th className="p-3">Référence</th>
-                  <th className="p-3">Formule</th>
+                  <th className="p-3">Achat</th>
                   <th className="p-3">Montant</th>
                   <th className="p-3">Statut</th>
                   <th className="p-3">Créé le</th>
@@ -442,7 +442,11 @@ export default function AdminPage() {
                   <tr key={payment.id}>
                     <td className="p-3"><strong>{payment.user.name}</strong><br /><span className="text-slate-500">{payment.user.email}</span></td>
                     <td className="p-3 font-mono font-bold">{payment.reference}</td>
-                    <td className="p-3 font-bold">{payment.plan}</td>
+                    <td className="p-3 font-bold">
+                      {payment.kind === 'CREDIT_TOPUP'
+                        ? `${Number(payment.creditAmount).toLocaleString('fr-FR')} crédits IA`
+                        : `Formule ${payment.plan}`}
+                    </td>
                     <td className="p-3">{Number(payment.amountEur).toFixed(2)} EUR</td>
                     <td className="p-3">
                       <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${

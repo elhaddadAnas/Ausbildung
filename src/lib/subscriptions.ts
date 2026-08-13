@@ -48,8 +48,31 @@ export const SUBSCRIPTION_PLANS = {
   },
 } as const;
 
+export const CREDIT_PACKS = {
+  CREDITS_100: {
+    code: 'CREDITS_100',
+    name: 'Pack Essentiel',
+    credits: 100,
+    priceEur: 2.99,
+  },
+  CREDITS_500: {
+    code: 'CREDITS_500',
+    name: 'Pack Boost',
+    credits: 500,
+    priceEur: 8.99,
+  },
+  CREDITS_1000: {
+    code: 'CREDITS_1000',
+    name: 'Pack Intensif',
+    credits: 1_000,
+    priceEur: 14.99,
+  },
+} as const;
+
 export type SubscriptionPlanCode = keyof typeof SUBSCRIPTION_PLANS;
+export type CreditPackCode = keyof typeof CREDIT_PACKS;
 export type AiOperation = 'MATCH' | 'COVER_LETTER' | 'CV_PARSE' | 'REPLY_ANALYSIS';
+export type AiCreditReservation = 'PLAN' | 'PURCHASED' | false;
 
 export const AI_CREDIT_COST: Record<AiOperation, number> = {
   MATCH: 1,
@@ -81,6 +104,10 @@ export class SubscriptionLimitError extends Error {
 
 export function isSubscriptionPlan(value: unknown): value is SubscriptionPlanCode {
   return typeof value === 'string' && value in SUBSCRIPTION_PLANS;
+}
+
+export function isCreditPack(value: unknown): value is CreditPackCode {
+  return typeof value === 'string' && value in CREDIT_PACKS;
 }
 
 function monthStart(date = new Date()): Date {
@@ -134,6 +161,7 @@ export async function getSubscriptionSnapshot(userId: string) {
       subscriptionPeriodStart: true,
       subscriptionCurrentPeriodEnd: true,
       aiCreditsUsed: true,
+      aiCreditBalance: true,
       applicationsUsed: true,
       role: true,
       unlimitedAccess: true,
@@ -168,10 +196,11 @@ export async function getSubscriptionSnapshot(userId: string) {
       aiCredits: user.aiCreditsUsed,
       applications: user.applicationsUsed,
     },
+    creditBalance: unlimited ? null : user.aiCreditBalance,
     remaining: {
       aiCredits: unlimited
         ? null
-        : Math.max(0, plan.aiCreditsPerMonth - user.aiCreditsUsed),
+        : Math.max(0, plan.aiCreditsPerMonth - user.aiCreditsUsed) + user.aiCreditBalance,
       applications: unlimited
         ? null
         : Math.max(0, plan.applicationsPerMonth - user.applicationsUsed),
@@ -182,7 +211,7 @@ export async function getSubscriptionSnapshot(userId: string) {
 export async function consumeAiCredits(
   userId: string,
   operation: AiOperation
-): Promise<boolean> {
+): Promise<AiCreditReservation> {
   const snapshot = await getSubscriptionSnapshot(userId);
   if (snapshot.unlimited) return false;
   const credits = AI_CREDIT_COST[operation];
@@ -199,17 +228,27 @@ export async function consumeAiCredits(
     },
   });
   if (!updated.count) {
+    const purchased = await db.user.updateMany({
+      where: {
+        id: userId,
+        aiCreditBalance: { gte: credits },
+      },
+      data: {
+        aiCreditBalance: { decrement: credits },
+      },
+    });
+    if (purchased.count) return 'PURCHASED';
     throw new SubscriptionLimitError(
-      `Votre quota IA mensuel ${snapshot.plan.name} est épuisé. Passez à une formule supérieure pour continuer.`
+      `Vos crédits IA sont épuisés. Achetez un pack de crédits ou passez à une formule supérieure pour continuer.`
     );
   }
-  return true;
+  return 'PLAN';
 }
 
 export async function tryConsumeAiCredits(
   userId: string,
   operation: AiOperation
-): Promise<{ allowed: boolean; reserved: boolean }> {
+): Promise<{ allowed: boolean; reserved: AiCreditReservation }> {
   try {
     const reserved = await consumeAiCredits(userId, operation);
     return { allowed: true, reserved };
@@ -223,9 +262,17 @@ export async function tryConsumeAiCredits(
 
 export async function releaseAiCredits(
   userId: string,
-  operation: AiOperation
+  operation: AiOperation,
+  reservation: Exclude<AiCreditReservation, false> = 'PLAN'
 ): Promise<void> {
   const credits = AI_CREDIT_COST[operation];
+  if (reservation === 'PURCHASED') {
+    await db.user.update({
+      where: { id: userId },
+      data: { aiCreditBalance: { increment: credits } },
+    });
+    return;
+  }
   await db.user.updateMany({
     where: {
       id: userId,

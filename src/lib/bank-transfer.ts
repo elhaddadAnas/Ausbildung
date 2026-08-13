@@ -1,8 +1,11 @@
 import { randomBytes } from 'crypto';
 import { db } from '@/lib/db';
 import {
+  CREDIT_PACKS,
+  isCreditPack,
   isSubscriptionPlan,
   SUBSCRIPTION_PLANS,
+  type CreditPackCode,
   type SubscriptionPlanCode,
 } from '@/lib/subscriptions';
 
@@ -32,6 +35,20 @@ export function paymentAmountCents(plan: PaidSubscriptionPlan): number {
   return Math.round(SUBSCRIPTION_PLANS[plan].monthlyPriceEur * 100);
 }
 
+export function creditPackAmountCents(pack: CreditPackCode): number {
+  return Math.round(CREDIT_PACKS[pack].priceEur * 100);
+}
+
+export function isCreditTopupPayment(payment: {
+  kind: string;
+  plan: string;
+  creditAmount: number | null;
+}): payment is { kind: 'CREDIT_TOPUP'; plan: CreditPackCode; creditAmount: number } {
+  return payment.kind === 'CREDIT_TOPUP'
+    && isCreditPack(payment.plan)
+    && payment.creditAmount === CREDIT_PACKS[payment.plan].credits;
+}
+
 export function addOneMonth(date = new Date()): Date {
   const next = new Date(date);
   next.setUTCMonth(next.getUTCMonth() + 1);
@@ -39,10 +56,10 @@ export function addOneMonth(date = new Date()): Date {
 }
 
 export async function generateUniqueTransferReference(
-  plan: PaidSubscriptionPlan
+  productCode: PaidSubscriptionPlan | CreditPackCode
 ): Promise<string> {
   for (let attempt = 0; attempt < 10; attempt++) {
-    const reference = `AF-${plan}-${randomBytes(5).toString('hex').toUpperCase()}`;
+    const reference = `AF-${productCode}-${randomBytes(5).toString('hex').toUpperCase()}`;
     const exists = await db.bankTransferPayment.findUnique({
       where: { reference },
       select: { id: true },

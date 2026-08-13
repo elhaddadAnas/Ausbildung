@@ -5,6 +5,7 @@ import {
   Building2,
   Check,
   Clock3,
+  Coins,
   Copy,
   CreditCard,
   Crown,
@@ -34,11 +35,20 @@ type SubscriptionData = {
   hasPaidSubscription: boolean;
   periodEnd: string;
   usage: { aiCredits: number; applications: number };
+  creditBalance: number | null;
   remaining: { aiCredits: number | null; applications: number | null };
+};
+type CreditPack = {
+  code: string;
+  name: string;
+  credits: number;
+  priceEur: number;
 };
 type Payment = {
   id: string;
-  plan: 'PLUS' | 'PRO';
+  plan: string;
+  kind: 'SUBSCRIPTION' | 'CREDIT_TOPUP';
+  creditAmount: number | null;
   amountEur: number;
   reference: string;
   status: 'PENDING' | 'SUBMITTED';
@@ -55,6 +65,7 @@ type BankDetails = {
 
 export default function SubscriptionPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [creditPacks, setCreditPacks] = useState<CreditPack[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [bankDetails, setBankDetails] = useState<BankDetails | null>(null);
@@ -79,6 +90,7 @@ export default function SubscriptionPage() {
       throw new Error(paymentJson.error || 'Impossible de charger le paiement.');
     }
     setPlans(subscriptionJson.plans || []);
+    setCreditPacks(subscriptionJson.creditPacks || []);
     setSubscription(subscriptionJson.subscription);
     setPayment(paymentJson.payment || null);
     setBankDetails(paymentJson.bankDetails || null);
@@ -136,6 +148,36 @@ export default function SubscriptionPage() {
     }
   };
 
+  const requestCreditPack = async (creditPack: string) => {
+    setRequesting(creditPack);
+    setMessage('');
+    setError('');
+    try {
+      const response = await fetch('/api/subscription/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creditPack }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'L’achat n’a pas pu être créé.');
+      setPayment(data.payment);
+      setBankDetails(data.bankDetails);
+      setMessage(
+        !data.bankDetails
+          ? 'Achat créé. Les coordonnées bancaires apparaîtront dès leur configuration par l’administrateur.'
+          : data.emailWarning
+            ? 'Achat créé. Les instructions sont affichées ci-dessous; leur envoi par e-mail a échoué.'
+            : 'Achat créé. Les instructions ont aussi été envoyées par e-mail.'
+      );
+      await loadData();
+      setPaymentDialogOpen(true);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'L’achat a échoué.');
+    } finally {
+      setRequesting(null);
+    }
+  };
+
   const markSubmitted = async () => {
     if (!payment) return;
     setRequesting(payment.id);
@@ -149,7 +191,11 @@ export default function SubscriptionPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'La déclaration a échoué.');
       setPayment(data.payment);
-      setMessage('Virement déclaré. Votre formule sera activée après vérification par un administrateur.');
+      setMessage(
+        payment.kind === 'CREDIT_TOPUP'
+          ? 'Virement déclaré. Vos crédits seront ajoutés après vérification par un administrateur.'
+          : 'Virement déclaré. Votre formule sera activée après vérification par un administrateur.'
+      );
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'La déclaration a échoué.');
     } finally {
@@ -172,6 +218,9 @@ export default function SubscriptionPage() {
     ? Math.min(100, Number(subscription?.usage.applications) / activePlan.applicationsPerMonth * 100) : 0;
   const creditPercent = activePlan && !subscription?.unlimited
     ? Math.min(100, Number(subscription?.usage.aiCredits) / activePlan.aiCreditsPerMonth * 100) : 0;
+  const paymentProductLabel = payment?.kind === 'CREDIT_TOPUP'
+    ? `${Number(payment.creditAmount).toLocaleString('fr-FR')} crédits IA`
+    : `formule ${payment?.plan === 'PLUS' ? 'Plus' : 'Pro'}`;
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-4 md:p-8">
@@ -205,10 +254,10 @@ export default function SubscriptionPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-blue-600">
-                  <Building2 className="h-4 w-4" /> Activation par virement bancaire
+                  <Building2 className="h-4 w-4" /> Paiement par virement bancaire
                 </p>
                 <h2 id="bank-transfer-dialog-title" className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
-                  Formule {payment.plan === 'PLUS' ? 'Plus' : 'Pro'} — {payment.amountEur.toFixed(2)} EUR
+                  {paymentProductLabel} — {payment.amountEur.toFixed(2)} EUR
                 </h2>
               </div>
               <button
@@ -223,11 +272,11 @@ export default function SubscriptionPage() {
 
             <div className="my-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
               <p className="font-bold text-slate-900 dark:text-white">
-                Vous devez effectuer un virement bancaire vers le RIB ci-dessous pour activer votre abonnement.
+                Effectuez le virement bancaire vers le RIB ci-dessous pour valider cet achat.
               </p>
               <p className="mt-2 flex gap-2 text-sm text-slate-600 dark:text-slate-300">
                 <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                L’abonnement sera activé au plus tard dans les 24 heures suivant la réception du virement bancaire.
+                {payment.kind === 'CREDIT_TOPUP' ? 'Les crédits seront ajoutés' : 'L’abonnement sera activé'} au plus tard dans les 24 heures suivant la réception du virement bancaire.
               </p>
             </div>
 
@@ -245,7 +294,7 @@ export default function SubscriptionPage() {
               </div>
             ) : (
               <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm font-semibold text-rose-600 dark:text-rose-300">
-                Votre formule a bien été sélectionnée, mais les coordonnées bancaires ne sont pas encore configurées. Elles apparaîtront ici dès que l’administrateur aura ajouté le RIB.
+                Votre achat a bien été créé, mais les coordonnées bancaires ne sont pas encore configurées. Elles apparaîtront ici dès que l’administrateur aura ajouté le RIB.
               </div>
             )}
 
@@ -293,7 +342,56 @@ export default function SubscriptionPage() {
             )}
           </div>
           <UsageBar label="Candidatures" value={subscription.usage.applications} limit={activePlan.applicationsPerMonth} percent={applicationPercent} unlimited={subscription.unlimited} />
-          <UsageBar label="Crédits IA" value={subscription.usage.aiCredits} limit={activePlan.aiCreditsPerMonth} percent={creditPercent} unlimited={subscription.unlimited} />
+          <div>
+            <UsageBar label="Crédits IA mensuels" value={subscription.usage.aiCredits} limit={activePlan.aiCreditsPerMonth} percent={creditPercent} unlimited={subscription.unlimited} />
+            {!subscription.unlimited && (
+              <p className="mt-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                + {Number(subscription.creditBalance).toLocaleString('fr-FR')} crédits achetés disponibles
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {subscription && !subscription.unlimited && (
+        <section className="rounded-3xl border border-indigo-500/25 bg-gradient-to-br from-indigo-500/10 via-white to-blue-500/5 p-6 shadow-sm dark:via-slate-900 dark:to-slate-950 md:p-8">
+          <div className="mb-6 flex flex-col justify-between gap-3 md:flex-row md:items-end">
+            <div>
+              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                <Coins className="h-4 w-4" /> Crédits supplémentaires
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-slate-900 dark:text-white">Achetez des crédits sans changer de formule</h2>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                Ils s’ajoutent à votre solde, ne sont pas remis à zéro chaque mois et restent disponibles jusqu’à leur utilisation.
+              </p>
+            </div>
+            <div className="w-fit rounded-2xl border border-indigo-500/25 bg-white/80 px-4 py-3 text-sm dark:bg-slate-900/80">
+              <span className="text-slate-500">Solde acheté : </span>
+              <strong className="text-indigo-600 dark:text-indigo-400">{Number(subscription.creditBalance).toLocaleString('fr-FR')} crédits</strong>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {creditPacks.map((pack) => {
+              const isPending = payment?.kind === 'CREDIT_TOPUP' && payment.plan === pack.code;
+              return (
+                <article key={pack.code} className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900/80">
+                  <p className="text-sm font-bold text-slate-500">{pack.name}</p>
+                  <p className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{pack.credits.toLocaleString('fr-FR')}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">crédits IA</p>
+                  <p className="my-4 text-xl font-black text-slate-900 dark:text-white">{pack.priceEur.toFixed(2)} €</p>
+                  <button
+                    type="button"
+                    onClick={() => isPending ? setPaymentDialogOpen(true) : requestCreditPack(pack.code)}
+                    disabled={requesting !== null}
+                    className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {requesting === pack.code && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isPending ? 'Afficher le paiement' : 'Acheter ce pack'}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
         </section>
       )}
 
@@ -303,7 +401,7 @@ export default function SubscriptionPage() {
             <div>
               <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-blue-600"><Building2 className="h-4 w-4" /> Virement bancaire</p>
               <h2 className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
-                {payment.amountEur.toFixed(2)} EUR — formule {payment.plan === 'PLUS' ? 'Plus' : 'Pro'}
+                {payment.amountEur.toFixed(2)} EUR — {paymentProductLabel}
               </h2>
             </div>
             <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${payment.status === 'SUBMITTED' ? 'bg-amber-500/15 text-amber-600' : 'bg-blue-500/15 text-blue-600'}`}>
@@ -334,7 +432,7 @@ export default function SubscriptionPage() {
       <section className="grid gap-6 lg:grid-cols-3">
         {plans.map((plan) => {
           const isActive = subscription?.planCode === plan.code && subscription.status === 'ACTIVE';
-          const isPending = payment?.plan === plan.code;
+          const isPending = payment?.kind === 'SUBSCRIPTION' && payment.plan === plan.code;
           const unavailable = subscription?.unlimited || isActive || plan.code === 'BASIC';
           return (
             <article key={plan.code} className={`relative flex flex-col rounded-3xl border p-6 shadow-xl ${plan.recommended ? 'border-blue-500 bg-gradient-to-b from-blue-500/10 to-white dark:to-slate-950' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/70'}`}>
@@ -365,7 +463,7 @@ export default function SubscriptionPage() {
           );
         })}
       </section>
-      <p className="text-center text-xs text-slate-500">La formule payante est activée uniquement après réception et validation du virement.</p>
+      <p className="text-center text-xs text-slate-500">Les formules et crédits sont activés uniquement après réception et validation du virement.</p>
     </div>
   );
 }

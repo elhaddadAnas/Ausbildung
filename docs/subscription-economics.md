@@ -47,6 +47,18 @@ estimé.
 | Plus | 9,99 € | 60 | 1 000 | Oui |
 | Pro | 19,99 € | 250 | 5 000 | Oui |
 
+Packs de crédits complémentaires, disponibles sans changement de formule :
+
+| Pack | Crédits IA | Prix unique |
+| --- | ---: | ---: |
+| Essentiel | 100 | 2,99 € |
+| Boost | 500 | 8,99 € |
+| Intensif | 1 000 | 14,99 € |
+
+Les crédits achetés sont conservés dans un solde séparé du quota mensuel. Ils
+n’expirent pas lors du renouvellement mensuel et sont consommés uniquement
+lorsque le quota inclus dans la formule ne suffit plus.
+
 Consommation des crédits :
 
 - analyse de match : 1 crédit ;
@@ -78,9 +90,10 @@ budgets doivent être recalibrés après un mois de données réelles provenant 
 
 ## Activation et paiement
 
-Les demandes de formule payante sont enregistrées avec un statut en attente.
-Un administrateur peut activer Découverte, Plus ou Pro depuis la console. Cette
-base empêche l’octroi gratuit d’une formule payante.
+Les demandes de formule payante et les achats de crédits sont enregistrés avec
+un statut en attente. Un administrateur peut activer une formule ou créditer le
+solde depuis la console après vérification du virement. Cette base empêche
+l’octroi gratuit d’une formule ou de crédits.
 
 L’encaissement automatique nécessite encore le choix d’un prestataire
 (Stripe, PayPal ou autre), ses clés API, les webhooks de paiement et les règles

@@ -4,6 +4,7 @@ import {
   recordOpenAiUsage,
   releaseAiCredits,
   tryConsumeAiCredits,
+  type AiCreditReservation,
 } from '@/lib/subscriptions';
 
 // gpt-4o-mini is intentionally pinned as the low-cost production model.
@@ -121,7 +122,7 @@ Antworte ausschließlich im JSON-Format mit folgenden Schlüsseln:
       }
     } catch (err) {
       if (userId && creditsReserved && !responseReceived) {
-        await releaseAiCredits(userId, 'MATCH');
+        await releaseAiCredits(userId, 'MATCH', creditsReserved);
       }
       console.warn('OpenAI API call failed, using fallback matcher:', err);
     }
@@ -300,7 +301,7 @@ WICHTIGE ANWEISUNGEN:
       throw new Error('OpenAI returned an incomplete or insufficiently personalized application message.');
     } catch (err) {
       if (options.userId && creditsReserved && !responseReceived) {
-        await releaseAiCredits(options.userId, 'COVER_LETTER');
+        await releaseAiCredits(options.userId, 'COVER_LETTER', creditsReserved);
       }
       console.warn('OpenAI application message generation failed:', err);
       if (options.requireOpenAI) {
@@ -492,7 +493,7 @@ export async function analyzeInboundApplicationReply(
   if (!openai || !OPENAI_CONFIGURED) {
     return fallbackReplyAnalysis(params, fallbackLinks);
   }
-  const replyCredits = userId
+  const replyCredits: { allowed: boolean; reserved: AiCreditReservation } = userId
     ? await tryConsumeAiCredits(userId, 'REPLY_ANALYSIS')
     : { allowed: true, reserved: false };
   if (!replyCredits.allowed) {
@@ -587,7 +588,7 @@ Pour une date relative, utilise la date de réception comme référence. Les ren
     };
   } catch (error) {
     if (userId && replyCredits.reserved && !responseReceived) {
-      await releaseAiCredits(userId, 'REPLY_ANALYSIS');
+      await releaseAiCredits(userId, 'REPLY_ANALYSIS', replyCredits.reserved);
     }
     console.warn('OpenAI inbound reply analysis failed:', error);
     return fallbackReplyAnalysis(params, fallbackLinks);
@@ -697,7 +698,7 @@ Extrais absolument TOUS les diplômes, formations, langues et expériences prés
       }
     } catch (err) {
       if (userId && creditsReserved && !responseReceived) {
-        await releaseAiCredits(userId, 'CV_PARSE');
+        await releaseAiCredits(userId, 'CV_PARSE', creditsReserved);
       }
       console.warn('OpenAI CV parsing failed, using fallback regex parser:', err);
     }

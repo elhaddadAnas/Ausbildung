@@ -29,6 +29,7 @@ model User {
   subscriptionExpiryReminderSentAt DateTime?
   subscriptionExpiredEmailSentAt   DateTime?
   aiCreditsUsed                    Int       @default(0)
+  aiCreditBalance                  Int       @default(0)
   applicationsUsed                 Int       @default(0)
   createdAt                        DateTime  @default(now())
   updatedAt                        DateTime  @updatedAt
@@ -67,6 +68,8 @@ model BankTransferPayment {
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan         String
+  kind         String    @default("SUBSCRIPTION") // SUBSCRIPTION, CREDIT_TOPUP
+  creditAmount Int?
   amountCents  Int
   currency     String    @default("EUR")
   reference    String    @unique

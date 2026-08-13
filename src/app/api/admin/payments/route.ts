@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { addOneMonth, isPaidSubscriptionPlan } from '@/lib/bank-transfer';
 import {
+  addOneMonth,
+  isCreditTopupPayment,
+  isPaidSubscriptionPlan,
+} from '@/lib/bank-transfer';
+import {
+  sendCreditTopupApprovedEmail,
   sendSubscriptionApprovedEmail,
   sendSubscriptionRejectedEmail,
 } from '@/lib/services/transactional-email';
@@ -39,12 +44,63 @@ export async function PUT(req: NextRequest) {
   if (!['PENDING', 'SUBMITTED'].includes(payment.status)) {
     return NextResponse.json({ error: 'Ce paiement a déjà été traité.' }, { status: 409 });
   }
-  if (!isPaidSubscriptionPlan(payment.plan)) {
-    return NextResponse.json({ error: 'Formule de paiement invalide.' }, { status: 400 });
+  const isCreditTopup = isCreditTopupPayment(payment);
+  const isSubscription = payment.kind === 'SUBSCRIPTION'
+    && isPaidSubscriptionPlan(payment.plan);
+  if (!isCreditTopup && !isSubscription) {
+    return NextResponse.json({ error: 'Produit de paiement invalide.' }, { status: 400 });
   }
 
   if (action === 'approve') {
     const now = new Date();
+    if (isCreditTopup) {
+      await db.$transaction(async (tx) => {
+        const claimed = await tx.bankTransferPayment.updateMany({
+          where: { id: payment.id, status: { in: ['PENDING', 'SUBMITTED'] } },
+          data: {
+            status: 'PAID',
+            paidAt: now,
+            reviewedAt: now,
+            reviewedById: admin.id,
+            adminNote: note,
+          },
+        });
+        if (!claimed.count) throw new Error('Ce paiement a déjà été traité.');
+        await tx.user.update({
+          where: { id: payment.userId },
+          data: { aiCreditBalance: { increment: payment.creditAmount } },
+        });
+        await tx.bankTransferPayment.updateMany({
+          where: {
+            userId: payment.userId,
+            id: { not: payment.id },
+            status: { in: ['PENDING', 'SUBMITTED'] },
+          },
+          data: { status: 'EXPIRED' },
+        });
+        await tx.systemLog.create({
+          data: {
+            source: 'PAYMENT',
+            message: `Virement ${payment.reference} validé par ${admin.email}; ${payment.creditAmount} crédits IA ajoutés pour ${payment.user.email}.`,
+          },
+        });
+      });
+      const email = await sendCreditTopupApprovedEmail(
+        payment.user.email,
+        payment.user.name,
+        payment.creditAmount
+      );
+      return NextResponse.json({
+        success: true,
+        message: `${payment.creditAmount} crédits IA ajoutés au compte.`,
+        emailWarning: email.success ? null : email.error,
+      });
+    }
+
+    // isSubscription narrows the checked plan for activation below.
+    if (!isPaidSubscriptionPlan(payment.plan)) {
+      return NextResponse.json({ error: 'Formule de paiement invalide.' }, { status: 400 });
+    }
     const renewalBase =
       payment.user.subscriptionPlan === payment.plan &&
       payment.user.subscriptionCurrentPeriodEnd &&
@@ -116,10 +172,12 @@ export async function PUT(req: NextRequest) {
         adminNote: note,
       },
     });
-    await tx.user.updateMany({
-      where: { id: payment.userId, subscriptionRequestedPlan: payment.plan },
-      data: { subscriptionRequestedPlan: null },
-    });
+    if (isSubscription) {
+      await tx.user.updateMany({
+        where: { id: payment.userId, subscriptionRequestedPlan: payment.plan },
+        data: { subscriptionRequestedPlan: null },
+      });
+    }
     await tx.systemLog.create({
       data: {
         source: 'PAYMENT',

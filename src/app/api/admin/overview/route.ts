@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
         subscriptionStatus: true,
         subscriptionRequestedPlan: true,
         aiCreditsUsed: true,
+        aiCreditBalance: true,
         applicationsUsed: true,
         createdAt: true,
         isGoogleLogin: true,
