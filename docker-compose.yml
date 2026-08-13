@@ -8,7 +8,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=file:/app/data/ausbildung-finder.db
+      - NEON_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-ausbildung_dev_password}@postgres:5432/ausbildung
+      - NEON_DATABASE_URL_UNPOOLED=postgresql://postgres:${POSTGRES_PASSWORD:-ausbildung_dev_password}@postgres:5432/ausbildung
       - JWT_SECRET=${JWT_SECRET}
       - SMTP_ENCRYPTION_KEY=${SMTP_ENCRYPTION_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -30,11 +31,27 @@ services:
       - SYSTEM_SMTP_FROM_EMAIL=${SYSTEM_SMTP_FROM_EMAIL}
       - SYSTEM_SMTP_FROM_NAME=${SYSTEM_SMTP_FROM_NAME:-Ausbildung Finder AI}
     volumes:
-      - sqlite_data:/app/data
       - uploads_data:/app/public/uploads
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
+    restart: always
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_DB=ausbildung
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ausbildung_dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ausbildung"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: always
 
   redis:
@@ -48,5 +65,5 @@ services:
       retries: 5
 
 volumes:
-  sqlite_data:
+  postgres_data:
   uploads_data:
