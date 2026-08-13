@@ -9,6 +9,9 @@ export async function register() {
     const { initializeDatabase } = await import('@/lib/db');
     validateProductionEnvironment();
     await initializeDatabase();
+    // Serverless instances can be frozen as soon as a request completes. Vercel
+    // scheduled work must be invoked by a Cron route instead of process timers.
+    if (process.env.VERCEL) return;
     const { startAutoApplyScheduler } = await import('@/lib/services/auto-apply-scheduler');
     const { startEmailInboxScheduler } = await import('@/lib/services/email-inbox-scheduler');
     const { startSubscriptionLifecycleScheduler } = await import('@/lib/services/subscription-lifecycle');
