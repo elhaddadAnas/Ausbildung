@@ -11,6 +11,14 @@ const nextConfig = {
     'imapflow',
     'mailparser',
   ],
+  // pdf-parse loads this worker dynamically at runtime. Next.js cannot discover
+  // the dynamic import while tracing the Vercel server function, so include it
+  // explicitly in the upload route bundle.
+  outputFileTracingIncludes: {
+    '/api/profile/upload-cv': [
+      './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
+    ],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
