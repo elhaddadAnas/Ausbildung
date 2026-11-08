@@ -1,0 +1,6 @@
+[tool.isort]
+line_length = 110
+multi_line_output = 3
+include_trailing_comma = true
+known_first_party = ["azubora", "config"]
+skip = [".venv", "migrations"]

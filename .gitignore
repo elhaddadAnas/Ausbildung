@@ -1,11 +1,22 @@
 .env
 .env.local
 .env.*.local
-.next/
-node_modules/
 data/
 public/uploads/
-prisma/*.db
-prisma/*.db-journal
 *.log
-tsconfig.tsbuildinfo
+
+# Frontend
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+frontend/tsconfig.tsbuildinfo
+
+# Backend
+python-project/.venv/
+python-project/dev.sqlite3*
+__pycache__/
+*.pyc
+
+# Sibling package
+node_modules/
+.next/

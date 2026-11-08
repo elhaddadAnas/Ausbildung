@@ -1,5 +1,0 @@
-ALTER TABLE "AutoApplyConfig"
-ADD COLUMN "scheduleDays" TEXT NOT NULL DEFAULT '[1,2,3,4,5]',
-ADD COLUMN "scheduleStartMinute" INTEGER NOT NULL DEFAULT 480,
-ADD COLUMN "scheduleEndMinute" INTEGER NOT NULL DEFAULT 900,
-ADD COLUMN "scheduleTimezone" TEXT NOT NULL DEFAULT 'Europe/Berlin';

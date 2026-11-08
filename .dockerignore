@@ -1,11 +1,12 @@
 .git
-.next
-node_modules
 packages
 .env
 .env.*
 data
-public/uploads
-prisma/*.db
 *.log
-tsconfig.tsbuildinfo
+frontend/node_modules
+frontend/.next
+frontend/out
+python-project/.venv
+python-project/dev.sqlite3*
+**/__pycache__

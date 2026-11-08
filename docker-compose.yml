@@ -1,41 +1,50 @@
+x-app-environment: &app-environment
+  NEON_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-ausbildung_dev_password}@postgres:5432/ausbildung
+  JWT_SECRET: ${JWT_SECRET}
+  SMTP_ENCRYPTION_KEY: ${SMTP_ENCRYPTION_KEY}
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+  APP_URL: ${APP_URL:-http://localhost:8000}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  REDIS_URL: redis://redis:6379
+  CRON_SECRET: ${CRON_SECRET:-}
+  ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+  BANK_ACCOUNT_HOLDER: ${BANK_ACCOUNT_HOLDER:-}
+  BANK_NAME: ${BANK_NAME:-}
+  BANK_RIB: ${BANK_RIB:-}
+  BANK_IBAN: ${BANK_IBAN:-}
+  BANK_BIC: ${BANK_BIC:-}
+  BANK_TRANSFER_INSTRUCTIONS: ${BANK_TRANSFER_INSTRUCTIONS:-}
+  BILLING_ADMIN_EMAIL: ${BILLING_ADMIN_EMAIL:-}
+  SYSTEM_SMTP_HOST: ${SYSTEM_SMTP_HOST:-}
+  SYSTEM_SMTP_PORT: ${SYSTEM_SMTP_PORT:-587}
+  SYSTEM_SMTP_SECURE: ${SYSTEM_SMTP_SECURE:-false}
+  SYSTEM_SMTP_USER: ${SYSTEM_SMTP_USER:-}
+  SYSTEM_SMTP_PASSWORD: ${SYSTEM_SMTP_PASSWORD:-}
+  SYSTEM_SMTP_FROM_EMAIL: ${SYSTEM_SMTP_FROM_EMAIL:-}
+  SYSTEM_SMTP_FROM_NAME: ${SYSTEM_SMTP_FROM_NAME:-Azubora}
+
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+  web:
+    build: .
     ports:
-      - "3000:3000"
-    environment:
-      - NEON_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-ausbildung_dev_password}@postgres:5432/ausbildung
-      - NEON_DATABASE_URL_UNPOOLED=postgresql://postgres:${POSTGRES_PASSWORD:-ausbildung_dev_password}@postgres:5432/ausbildung
-      - JWT_SECRET=${JWT_SECRET}
-      - SMTP_ENCRYPTION_KEY=${SMTP_ENCRYPTION_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
-      - REDIS_URL=redis://redis:6379
-      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      - BANK_ACCOUNT_HOLDER=${BANK_ACCOUNT_HOLDER}
-      - BANK_NAME=${BANK_NAME:-}
-      - BANK_RIB=${BANK_RIB:-}
-      - BANK_IBAN=${BANK_IBAN:-}
-      - BANK_BIC=${BANK_BIC:-}
-      - BANK_TRANSFER_INSTRUCTIONS=${BANK_TRANSFER_INSTRUCTIONS:-}
-      - BILLING_ADMIN_EMAIL=${BILLING_ADMIN_EMAIL:-}
-      - SYSTEM_SMTP_HOST=${SYSTEM_SMTP_HOST}
-      - SYSTEM_SMTP_PORT=${SYSTEM_SMTP_PORT:-587}
-      - SYSTEM_SMTP_SECURE=${SYSTEM_SMTP_SECURE:-false}
-      - SYSTEM_SMTP_USER=${SYSTEM_SMTP_USER}
-      - SYSTEM_SMTP_PASSWORD=${SYSTEM_SMTP_PASSWORD}
-      - SYSTEM_SMTP_FROM_EMAIL=${SYSTEM_SMTP_FROM_EMAIL}
-      - SYSTEM_SMTP_FROM_NAME=${SYSTEM_SMTP_FROM_NAME:-Ausbildung Finder AI}
-    volumes:
-      - uploads_data:/app/public/uploads
+      - "8000:8000"
+    environment: *app-environment
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+    restart: always
+
+  # Auto-apply bot, IMAP inbox sync and subscription expiry. Run exactly one.
+  worker:
+    build: .
+    command: ["python", "manage.py", "run_scheduler"]
+    environment: *app-environment
+    depends_on:
+      web:
         condition: service_healthy
     restart: always
 
@@ -56,7 +65,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: ausbildung_redis
     restart: always
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -66,4 +74,3 @@ services:
 
 volumes:
   postgres_data:
-  uploads_data:
